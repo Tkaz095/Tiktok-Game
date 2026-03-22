@@ -169,7 +169,7 @@ def main():
     try:
         r_org = pygame.image.load("assets/man.png").convert_alpha()
         b_org = pygame.image.load("assets/woman.png").convert_alpha()
-        b_org = pygame.transform.flip(b_org, True, False)
+        r_org = pygame.transform.flip(r_org, True, False)
         imgs_ok = True
     except: imgs_ok = False
 

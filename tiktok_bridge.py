@@ -7,7 +7,7 @@ import asyncio
 async def run_tiktok(user_id):
     client = TikTokLiveClient(unique_id=f"@{user_id}")
 
-    @client.on("comment")
+    @client.on(CommentEvent)
     async def on_comment(event: CommentEvent):
         text = event.comment.strip()
         if text == "1":
@@ -17,7 +17,7 @@ async def run_tiktok(user_id):
             data_state.score_b += 1
             data_state.split_x -= data_state.power_comment
 
-    @client.on("gift")
+    @client.on(GiftEvent)
     async def on_gift(event: GiftEvent):
         gift_name = event.gift.info.name
         count = event.gift.repeat_count
