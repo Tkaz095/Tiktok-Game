@@ -8,9 +8,46 @@ from tiktok_bridge import start_tiktok_thread
 
 pygame.init()
 WIDTH, HEIGHT = 960, 620
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+WINDOW_FLAGS = pygame.RESIZABLE
+screen = pygame.display.set_mode((WIDTH, HEIGHT), WINDOW_FLAGS)
 pygame.display.set_caption("PUSH BATTLE - TikTok Live")
 clock = pygame.time.Clock()
+
+try:
+    pygame.scrap.init()
+    CLIPBOARD_AVAILABLE = True
+except:
+    CLIPBOARD_AVAILABLE = False
+
+
+def _get_clipboard_text():
+    if not CLIPBOARD_AVAILABLE:
+        return ""
+    try:
+        raw = None
+        for clip_type in (pygame.SCRAP_TEXT, b"text/plain;charset=utf-8", b"UTF8_STRING", b"TEXT"):
+            try:
+                raw = pygame.scrap.get(clip_type)
+                if raw:
+                    break
+            except:
+                continue
+        if not raw:
+            return ""
+        text = raw.decode("utf-8", errors="ignore").replace("\x00", "")
+        return text.replace("\r", "").replace("\n", "")
+    except:
+        return ""
+
+
+def _set_clipboard_text(text):
+    if not CLIPBOARD_AVAILABLE:
+        return
+    try:
+        payload = text.encode("utf-8") + b"\x00"
+        pygame.scrap.put(pygame.SCRAP_TEXT, payload)
+    except:
+        pass
 
 # ─── COLORS ───────────────────────────────────────────────
 C_BG        = (8,   8,  16)
@@ -84,12 +121,16 @@ def draw_glow_circle(surf, color, center, radius, layers=6):
     pygame.draw.circle(surf, color, center, radius)
 
 # ─── STARFIELD BACKGROUND ────────────────────────────────
-stars = [(random.randint(0, WIDTH), random.randint(0, HEIGHT), random.uniform(0.3, 1.2)) for _ in range(120)]
+def create_stars():
+    count = max(120, (WIDTH * HEIGHT) // 8000)
+    return [(random.randint(0, WIDTH), random.randint(0, HEIGHT), random.uniform(0.3, 1.2)) for _ in range(count)]
+
+stars = create_stars()
 
 def draw_stars(surf, t):
     for sx, sy, spd in stars:
         brightness = int(80 + 60 * math.sin(t * spd * 0.05 + sx))
-        pygame.draw.circle(surf, (brightness, brightness, brightness+20), (sx, sy), 1)
+        pygame.draw.circle(surf, (brightness, brightness, brightness+20), (sx % WIDTH, sy % HEIGHT), 1)
 
 # ─── ANIMATED TITLE ──────────────────────────────────────
 def draw_animated_title(surf, font_big, font_sub, t):
@@ -161,14 +202,50 @@ class Button:
 
 # ─── INPUT BOX ───────────────────────────────────────────
 class InputBox:
+    BACKSPACE_REPEAT_DELAY_MS = 350
+    BACKSPACE_REPEAT_INTERVAL_MS = 45
+
     def __init__(self, x, y, w, h, font, text="", numeric=False, hint="", label=""):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = str(text)
         self.numeric = numeric
         self.active = False
+        self.select_all = False
+        self.backspace_held = False
+        self.backspace_next_ms = 0
         self.font = font
         self.hint = hint
         self.label = label
+
+    def _normalize_text(self, text):
+        if not self.numeric:
+            return text
+        return "".join(ch for ch in text if (ch.isnumeric() or ch in ".-"))
+
+    def _insert_text(self, new_text):
+        if not new_text:
+            return
+        filtered = self._normalize_text(new_text.replace("\r", "").replace("\n", ""))
+        if self.select_all:
+            self.text = filtered
+            self.select_all = False
+        else:
+            self.text += filtered
+
+    def _delete_one(self):
+        if self.select_all:
+            self.text = ""
+            self.select_all = False
+        else:
+            self.text = self.text[:-1]
+
+    def update(self):
+        if not (self.active and self.backspace_held):
+            return
+        now = pygame.time.get_ticks()
+        if now >= self.backspace_next_ms:
+            self._delete_one()
+            self.backspace_next_ms = now + self.BACKSPACE_REPEAT_INTERVAL_MS
 
     def draw(self, surf, font_label=None):
         if self.label and font_label:
@@ -187,10 +264,47 @@ class InputBox:
     def handle(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             self.active = self.rect.collidepoint(event.pos)
+            if self.active:
+                self.select_all = False
+            else:
+                self.backspace_held = False
+        if event.type == pygame.KEYUP and event.key == pygame.K_BACKSPACE:
+            self.backspace_held = False
         if event.type == pygame.KEYDOWN and self.active:
-            if event.key == pygame.K_BACKSPACE: self.text = self.text[:-1]
-            elif not self.numeric or event.unicode.isnumeric() or event.unicode in ".-":
-                self.text += event.unicode
+            mods = event.mod
+            ctrl_pressed = (mods & pygame.KMOD_CTRL) != 0
+            shift_pressed = (mods & pygame.KMOD_SHIFT) != 0
+
+            if ctrl_pressed:
+                if event.key == pygame.K_v:
+                    self._insert_text(_get_clipboard_text())
+                elif event.key == pygame.K_c:
+                    _set_clipboard_text(self.text)
+                elif event.key == pygame.K_x:
+                    _set_clipboard_text(self.text)
+                    self.text = ""
+                    self.select_all = False
+                elif event.key == pygame.K_a:
+                    self.select_all = True
+                elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+                    self.text = ""
+                    self.select_all = False
+                    self.backspace_held = False
+                return
+
+            if shift_pressed and event.key == pygame.K_INSERT:
+                self._insert_text(_get_clipboard_text())
+                return
+
+            if event.key == pygame.K_BACKSPACE:
+                self._delete_one()
+                self.backspace_held = True
+                self.backspace_next_ms = pygame.time.get_ticks() + self.BACKSPACE_REPEAT_DELAY_MS
+            elif event.key == pygame.K_DELETE:
+                self.text = ""
+                self.select_all = False
+            elif event.unicode:
+                self._insert_text(event.unicode)
 
 # ─── HUD BAR ─────────────────────────────────────────────
 def draw_hud(surf, font, font_small, t):
@@ -363,6 +477,8 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
 # MAIN
 # ═══════════════════════════════════════════════════════════
 def main():
+    global WIDTH, HEIGHT, screen
+
     font_title  = get_font(46, bold=True)
     font_big    = get_font(54, bold=True)
     font_menu   = get_font(22, bold=True)
@@ -400,8 +516,9 @@ def main():
         imgs_ok = False
 
     state = "MENU"
-    smooth_split = 480.0
-    prev_split = 480.0
+    data_state.split_x = float(WIDTH) * 0.5
+    smooth_split = float(data_state.split_x)
+    prev_split = float(data_state.split_x)
     t = 0
     settings_scroll = 0
 
@@ -409,6 +526,13 @@ def main():
         screen.fill(C_BG)
         dt = clock.tick(60)
         t += 1
+        CX = WIDTH // 2
+
+        # Re-layout interactive elements each frame so clicks stay aligned after resize.
+        btn_start.rect.topleft = (CX - 160, 260)
+        btn_test.rect.topleft = (CX - 160, 326)
+        btn_set.rect.topleft = (CX - 160, 392)
+        btn_back.rect.y = HEIGHT - 52
 
         # Lerp smooth divider
         if data_state.shake_intensity > 0:
@@ -425,6 +549,31 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
+
+            if event.type == pygame.VIDEORESIZE:
+                old_w = WIDTH
+                WIDTH = max(760, event.w)
+                HEIGHT = max(520, event.h)
+                screen = pygame.display.set_mode((WIDTH, HEIGHT), WINDOW_FLAGS)
+                stars[:] = create_stars()
+
+                # Preserve divider relative position when the window size changes.
+                if old_w > 0:
+                    ratio = data_state.split_x / old_w
+                    smooth_ratio = smooth_split / old_w
+                else:
+                    ratio = 0.5
+                    smooth_ratio = 0.5
+                data_state.split_x = max(50.0, min(float(WIDTH - 50), ratio * WIDTH))
+                smooth_split = max(50.0, min(float(WIDTH - 50), smooth_ratio * WIDTH))
+
+            if state == "CONNECT":
+                card_w = min(620, max(420, WIDTH - 220))
+                card_h = 260
+                card_x = (WIDTH - card_w) // 2
+                card_y = max(120, HEIGHT // 2 - 170)
+                id_box.rect = pygame.Rect(card_x + 20, card_y + 50, card_w - 40, 54)
+                btn_conn.rect = pygame.Rect(card_x + 20, card_y + 140, card_w - 40, 52)
 
             if state == "MENU":
                 if btn_start.handle(event): state = "CONNECT"
@@ -466,18 +615,23 @@ def main():
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE: state = "MENU"
                 if event.type == pygame.KEYDOWN and event.unicode == data_state.team_a_comment:
-                    data_state.split_x = max(50, min(850, data_state.split_x + 25))
+                    data_state.split_x = max(50, min(WIDTH - 50, data_state.split_x + 25))
                     data_state.score_a += 1; data_state.shake_intensity = 5
                 if event.type == pygame.KEYDOWN and event.unicode == data_state.team_b_comment:
-                    data_state.split_x = max(50, min(850, data_state.split_x - 25))
+                    data_state.split_x = max(50, min(WIDTH - 50, data_state.split_x - 25))
                     data_state.score_b += 1; data_state.shake_intensity = 5
 
         # ── RENDER ──────────────────────────────────────────
+        id_box.update()
+        for box in settings_boxes.values():
+            box.update()
+
         draw_stars(screen, t)
 
         if state == "MENU":
             # Ambient glow blobs
-            for bx, by, bc, br in [(240, 300, C_RED, 200), (720, 300, C_BLUE, 200)]:
+            glow_y = min(300, HEIGHT // 2)
+            for bx, by, bc, br in [(CX - 240, glow_y, C_RED, 200), (CX + 240, glow_y, C_BLUE, 200)]:
                 s = pygame.Surface((br*2, br*2), pygame.SRCALPHA)
                 pygame.draw.circle(s, (*bc, 22), (br, br), br)
                 screen.blit(s, (bx - br, by - br))
@@ -496,7 +650,11 @@ def main():
             screen.blit(hint, (CX - hint.get_width()//2, HEIGHT - 30))
 
         elif state == "CONNECT":
-            # Ambient glow
+            card_w = min(620, max(420, WIDTH - 220))
+            card_h = 260
+            card_x = (WIDTH - card_w) // 2
+            card_y = max(120, HEIGHT // 2 - 170)
+
             # Ambient glow
             gs = pygame.Surface((480, 480), pygame.SRCALPHA)
             pygame.draw.circle(gs, (*C_CYAN, 14), (240, 240), 240)
@@ -509,10 +667,6 @@ def main():
             screen.blit(sub, (CX - sub.get_width()//2, 134))
 
             # ── Card ──
-            card_x = CX - 260
-            card_y = 175
-            card_w = 520
-            card_h = 260
             draw_rect_alpha(screen, (18, 18, 30, 235), (card_x, card_y, card_w, card_h), radius=16)
             pygame.draw.rect(screen, C_BORDER, (card_x, card_y, card_w, card_h), 1, border_radius=16)
             pygame.draw.rect(screen, C_CYAN, (card_x + 1, card_y + 1, card_w - 2, 3), border_radius=16)
@@ -546,22 +700,36 @@ def main():
 
         elif state == "GAME":
             sx = int(smooth_split)
+            sx = max(50, min(WIDTH - 50, sx))
+            left_w = sx
+            right_w = WIDTH - sx
+
             # Backgrounds
-            pygame.draw.rect(screen, (35, 8, 12), (0, 0, sx, HEIGHT))
-            pygame.draw.rect(screen, (8, 12, 40), (sx, 0, WIDTH, HEIGHT))
+            pygame.draw.rect(screen, (35, 8, 12), (0, 0, left_w, HEIGHT))
+            pygame.draw.rect(screen, (8, 12, 40), (sx, 0, right_w, HEIGHT))
+
             # Subtle gradient vignette
-            for side, col, rx in [("L", C_RED, 0), ("R", C_BLUE, sx)]:
-                gs = pygame.Surface((min(sx, WIDTH-sx), HEIGHT), pygame.SRCALPHA)
-                for xi in range(0, min(sx, WIDTH-sx), 4):
-                    a = int(30 * (1 - xi / max(min(sx, WIDTH-sx), 1)))
-                    pygame.draw.line(gs, (*col, a), (xi if side=="L" else min(sx,WIDTH-sx)-xi, 0),
-                                     (xi if side=="L" else min(sx,WIDTH-sx)-xi, HEIGHT))
-                screen.blit(gs, (sx - min(sx,WIDTH-sx) if side=="L" else sx, 0))
+            if left_w > 0:
+                gs_left = pygame.Surface((left_w, HEIGHT), pygame.SRCALPHA)
+                for xi in range(0, left_w, 4):
+                    a = int(30 * (1 - xi / max(left_w, 1)))
+                    pygame.draw.line(gs_left, (*C_RED, a), (xi, 0), (xi, HEIGHT))
+                screen.blit(gs_left, (0, 0))
+
+            if right_w > 0:
+                gs_right = pygame.Surface((right_w, HEIGHT), pygame.SRCALPHA)
+                for xi in range(0, right_w, 4):
+                    a = int(30 * (1 - xi / max(right_w, 1)))
+                    px = right_w - 1 - xi
+                    pygame.draw.line(gs_right, (*C_BLUE, a), (px, 0), (px, HEIGHT))
+                screen.blit(gs_right, (sx, 0))
 
             # Character images
             if imgs_ok:
-                rf = max(1.0, 1.0 + (smooth_split - 480)/480 * 0.6)
-                bf = max(1.0, 1.0 + (480 - smooth_split)/480 * 0.6)
+                center_x = WIDTH * 0.5
+                half_w = max(center_x, 1.0)
+                rf = max(1.0, 1.0 + (smooth_split - center_x) / half_w * 0.6)
+                bf = max(1.0, 1.0 + (center_x - smooth_split) / half_w * 0.6)
                 ri = pygame.transform.smoothscale(r_org, (int(260*rf), int(260*rf)))
                 bi = pygame.transform.smoothscale(b_org, (int(260*bf), int(260*bf)))
                 screen.blit(ri, (sx//2 - ri.get_width()//2, HEIGHT//2 - ri.get_height()//2 - 20))
