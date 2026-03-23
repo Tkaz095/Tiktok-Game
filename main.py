@@ -208,7 +208,7 @@ def draw_hud(surf, font, font_small, t):
     if data_state.is_connected:
         id_text = font.render(f"LIVE  @{data_state.tiktok_id}", True, C_WHITE)
     else:
-        id_text = font.render("CHO KET NOI...", True, C_GRAY)
+        id_text = font.render("WAITING FOR CONNECTION...", True, C_GRAY)
     surf.blit(id_text, (38, hud_h // 2 - id_text.get_height() // 2))
 
     # Last event (right side)
@@ -279,12 +279,12 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
 
     # ── Scrollable content vẽ lên surface riêng rồi clip ──
     sections = [
-        ("LUC DAY",       [(boxes["p_com"],  "Luc Comment (px/comment)"),
-                            (boxes["p_gift"], "Luc Qua (px/gift x so luong)")]),
-        ("COMMENT KY TU", [(boxes["cmt_a"],  "Ky tu -> Doi Do  (VD: 1, A, red...)"),
-                            (boxes["cmt_b"],  "Ky tu -> Doi Xanh  (VD: 2, B, blue...)")]),
-        ("QUA TANG",      [(boxes["gift_a"], "Ten qua -> Doi Do"),
-                            (boxes["gift_b"], "Ten qua -> Doi Xanh")]),
+        ("LỰC ĐẨY",       [(boxes["p_com"],  "Lực Comment (px/comment)"),
+                            (boxes["p_gift"], "Lực Quà (px/gift × số lượng)")]),
+        ("COMMENT KÝ TỰ", [(boxes["cmt_a"],  "Ký tự → Đội Đỏ  (VD: 1, A, red...)"),
+                            (boxes["cmt_b"],  "Ký tự → Đội Xanh  (VD: 2, B, blue...)")]),
+        ("QUÀ TẶNG",      [(boxes["gift_a"], "Tên quà → Đội Đỏ"),
+                            (boxes["gift_b"], "Tên quà → Đội Xanh")]),
     ]
     card_x, card_w = 60, WIDTH - 120
 
@@ -332,7 +332,7 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     btn_save.rect.h = 48
     pygame.draw.rect(content_surf, (18, 36, 22), save_rect_content, border_radius=12)
     pygame.draw.rect(content_surf, C_GREEN, save_rect_content, 2, border_radius=12)
-    slbl = font_label.render("OK  LUU CAI DAT", True, C_WHITE)
+    slbl = font_label.render("✔  LƯU CÀI ĐẶT", True, C_WHITE)
     content_surf.blit(slbl, slbl.get_rect(center=save_rect_content.center))
 
     # Clip và blit vùng scroll (chỉ phần giữa header và footer)
@@ -342,7 +342,7 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     # ── Header cố định (vẽ đè lên) ──
     draw_rect_alpha(surf, (8, 8, 16, 240), (0, 0, WIDTH, HEADER_H))
     pygame.draw.line(surf, C_BORDER, (0, HEADER_H), (WIDTH, HEADER_H), 1)
-    title = font_title.render("# CAI DAT", True, C_WHITE)
+    title = font_title.render("⚙  CÀI ĐẶT", True, C_WHITE)
     surf.blit(title, (30, 18))
 
     # ── Footer cố định ──
@@ -373,15 +373,15 @@ def main():
 
     CX = WIDTH // 2
     # ── Menu buttons ──
-    btn_start = Button(CX-160, 260, 320, 52, "BAT DAU LIVE", C_RED,   font_menu, icon=">>")
-    btn_test  = Button(CX-160, 326, 320, 52, "CHE DO TEST",  C_GOLD,  font_menu, icon="[T]")
-    btn_set   = Button(CX-160, 392, 320, 52, "CAI DAT",       C_CYAN,  font_menu, icon="[S]")
+    btn_start = Button(CX-160, 260, 320, 52, "BẮT ĐẦU LIVE", C_RED,   font_menu, icon=">>")
+    btn_test  = Button(CX-160, 326, 320, 52, "CHẾ ĐỘ TEST",  C_GOLD,  font_menu, icon="[T]")
+    btn_set   = Button(CX-160, 392, 320, 52, "CÀI ĐẶT",       C_CYAN,  font_menu, icon="[S]")
 
-    btn_save  = Button(60,  0, 840, 48, "LUU CAI DAT",    C_GREEN, font_menu, icon="OK")
-    btn_back  = Button(20, HEIGHT-56, 160, 40, "<< QUAY LAI", C_GRAY, font_small)
-    btn_conn  = Button(CX-160, HEIGHT//2+40, 320, 50, "KET NOI",   C_CYAN,  font_menu, icon=">>")
+    btn_save  = Button(60,  0, 840, 48, "LƯU CÀI ĐẶT",    C_GREEN, font_menu, icon="OK")
+    btn_back  = Button(20, HEIGHT-56, 160, 40, "← QUAY LẠI", C_GRAY, font_small)
+    btn_conn  = Button(CX-160, HEIGHT//2+40, 320, 50, "KẾT NỐI",   C_CYAN,  font_menu, icon=">>")
 
-    id_box = InputBox(CX-200, HEIGHT//2-10, 400, 48, font_text, hint="Nhap ID TikTok cua ban...", label="TikTok ID")
+    id_box = InputBox(CX-200, HEIGHT//2-10, 400, 48, font_text, hint="Nhập ID TikTok của bạn...", label="TikTok ID")
 
     settings_boxes = {
         "p_com":    InputBox(0, 0, 0, 40, font_text, text="3.0",       numeric=True),
@@ -492,7 +492,7 @@ def main():
             btn_set.draw(screen, t)
 
             # Footer hint
-            hint = font_label.render("Nhan ky tu game de test thu cong", True, C_GRAY)
+            hint = font_label.render("Nhấn ký tự trong game để test thủ công", True, C_GRAY)
             screen.blit(hint, (CX - hint.get_width()//2, HEIGHT - 30))
 
         elif state == "CONNECT":
@@ -503,9 +503,9 @@ def main():
             screen.blit(gs, (CX - 240, HEIGHT//2 - 300))
 
             # ── Title block ──
-            title = font_title.render("KET NOI TIKTOK LIVE", True, C_WHITE)
+            title = font_title.render("KẾT NỐI TIKTOK LIVE", True, C_WHITE)
             screen.blit(title, (CX - title.get_width()//2, 80))
-            sub = font_small.render("Nhap username, khong can @  -  Vi du: yourname", True, C_GRAY)
+            sub = font_small.render("Nhập username, không cần @  -  Ví dụ: yourname", True, C_GRAY)
             screen.blit(sub, (CX - sub.get_width()//2, 134))
 
             # ── Card ──
@@ -534,7 +534,7 @@ def main():
             btn_conn.draw(screen, t)
 
             # Hint below card
-            hint = font_label.render("Hoac nhan  ENTER  de ket noi", True, C_GRAY)
+            hint = font_label.render("Hoặc nhấn  ENTER  để kết nối", True, C_GRAY)
             screen.blit(hint, (CX - hint.get_width()//2, card_y + card_h + 14))
 
             btn_back.rect.y = HEIGHT - 52
@@ -573,13 +573,13 @@ def main():
             draw_hud(screen, font_menu, font_small, t)
 
             # Team labels
-            rl = font_menu.render("DOI DO", True, C_RED)
-            bl = font_menu.render("DOI XANH", True, C_BLUE)
+            rl = font_menu.render("RED TEAM", True, C_RED)
+            bl = font_menu.render("BLUE TEAM", True, C_BLUE)
             screen.blit(rl, (sx//2 - rl.get_width()//2, HEIGHT - 75))
             screen.blit(bl, (sx + (WIDTH-sx)//2 - bl.get_width()//2, HEIGHT - 75))
-    
+
             # ESC hint — hiển thị ký tự hiện tại từ settings
-            hint_txt = f"ESC = Menu  |  '{data_state.team_a_comment}' = Doi Do  |  '{data_state.team_b_comment}' = Doi Xanh"
+            hint_txt = f"ESC = Menu  |  '{data_state.team_a_comment}' = Red Team  |  '{data_state.team_b_comment}' = Blue Team"
             esc = font_label.render(hint_txt, True, C_GRAY)
             screen.blit(esc, (WIDTH//2 - esc.get_width()//2, HEIGHT - 56))
 
