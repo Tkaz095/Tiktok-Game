@@ -26,3 +26,36 @@
 
 3. **Sử dụng:**
    Khi game hiện lên, trên giao diện sẽ có ô để bạn nhập `TikTok ID` (ví dụ ID của bạn đang livestream). Nhấn kết nối để hệ thống bắt đầu tự nhận diện bình luận và quà tặng từ phiên livestream đó.
+
+## Build Desktop App (Windows)
+
+### 1) Cài dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 2) Build file thực thi (.exe)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build_desktop.ps1 -Clean
+```
+
+Sau khi build xong, app nằm trong thư mục:
+
+```text
+dist/PUSH-BATTLE.exe
+```
+
+### 3) Chạy bản Desktop
+
+```powershell
+dist/PUSH-BATTLE.exe
+```
+
+### 4) Tài liệu phát hành
+
+- Quy trình deploy chi tiết: `DEPLOY_DESKTOP.md`
+- Cấu hình đóng gói PyInstaller: `tiktok_game.spec`
+- Danh sách dependency cố định version: `requirements.txt`
+- Mẫu biến môi trường: `.env.example`

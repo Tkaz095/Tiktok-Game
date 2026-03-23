@@ -3,6 +3,7 @@ import sys
 import math
 import random
 import threading
+import os
 import data_state
 from tiktok_bridge import start_tiktok_thread
 
@@ -48,6 +49,11 @@ def _set_clipboard_text(text):
         pygame.scrap.put(pygame.SCRAP_TEXT, payload)
     except:
         pass
+
+
+def resource_path(*parts):
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, *parts)
 
 # ─── COLORS ───────────────────────────────────────────────
 C_BG        = (8,   8,  16)
@@ -391,6 +397,16 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     HEADER_H = 70
     FOOTER_H = 70  # quay lại button area
 
+    # Bright ambient overlay so the settings screen feels lighter and cleaner.
+    for cx, cy, r, col, a in [
+        (WIDTH // 2, 60, 360, (90, 130, 255), 24),
+        (90, HEIGHT // 3, 260, (60, 220, 255), 20),
+        (WIDTH - 90, HEIGHT // 2, 280, (90, 255, 220), 16),
+    ]:
+        glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*col, a), (r, r), r)
+        surf.blit(glow, (cx - r, cy - r))
+
     # ── Scrollable content vẽ lên surface riêng rồi clip ──
     sections = [
         ("LỰC ĐẨY",       [(boxes["p_com"],  "Lực Comment (px/comment)"),
@@ -413,26 +429,35 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     cy = 16
     for sec_title, items in sections:
         card_h = len(items) * 72 + 44
-        draw_rect_alpha(content_surf, (20, 20, 34, 200), (card_x, cy, card_w, card_h), radius=14)
-        pygame.draw.rect(content_surf, C_BORDER, (card_x, cy, card_w, card_h), 1, border_radius=14)
-        sh = font_label.render(sec_title, True, C_CYAN)
-        content_surf.blit(sh, (card_x + 18, cy + 12))
+        card_rect = pygame.Rect(card_x, cy, card_w, card_h)
+        draw_rect_alpha(content_surf, (22, 28, 58, 218), card_rect, radius=16)
+        draw_rect_alpha(content_surf, (180, 220, 255, 12), (card_x + 1, cy + 1, card_w - 2, 4), radius=16)
+        pygame.draw.rect(content_surf, (58, 86, 140), card_rect, 1, border_radius=16)
+
+        chip_w = 150
+        chip_rect = pygame.Rect(card_x + 14, cy + 10, chip_w, 24)
+        draw_rect_alpha(content_surf, (20, 140, 170, 70), chip_rect, radius=10)
+        pygame.draw.rect(content_surf, (34, 210, 225), chip_rect, 1, border_radius=10)
+        sh = font_label.render(sec_title, True, (168, 246, 255))
+        content_surf.blit(sh, (chip_rect.x + 10, chip_rect.y + 4))
+
         for j, (box, lbl) in enumerate(items):
             by = cy + 44 + j * 72
             box.rect.x = card_x + 18
             box.rect.y = HEADER_H + by - scroll_y  # vị trí thực trên screen để click hoạt động
             box.rect.w = card_w - 36
-            lbl_surf = font_label.render(lbl, True, C_GRAY)
+            lbl_surf = font_label.render(lbl, True, (126, 154, 188))
             content_surf.blit(lbl_surf, (card_x + 18, by))
             # Vẽ box lên content_surf tại vị trí relative
             box_rel = pygame.Rect(card_x + 18, by + 22, card_w - 36, 40)
-            pygame.draw.rect(content_surf, (14, 14, 24), box_rel, border_radius=8)
-            border_c = C_CYAN if box.active else C_BORDER
+            pygame.draw.rect(content_surf, (16, 20, 44), box_rel, border_radius=10)
+            draw_rect_alpha(content_surf, (255, 255, 255, 8), (box_rel.x, box_rel.y, box_rel.w, 2), radius=10)
+            border_c = (36, 228, 236) if box.active else (62, 84, 124)
             pygame.draw.rect(content_surf, border_c, box_rel, 2, border_radius=8)
             if box.active:
-                draw_rect_alpha(content_surf, (*C_CYAN, 15), box_rel, radius=8)
+                draw_rect_alpha(content_surf, (36, 228, 236, 24), box_rel, radius=8)
             display = box.text if box.text else box.hint
-            color = C_WHITE if box.text else C_GRAY
+            color = (236, 246, 255) if box.text else (120, 142, 170)
             t_surf = box.font.render(display + ("|" if box.active else ""), True, color)
             content_surf.blit(t_surf, (box_rel.x + 12, box_rel.y + (box_rel.h - t_surf.get_height()) // 2))
         cy += card_h + 16
@@ -444,9 +469,10 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     btn_save.rect.y = HEADER_H + save_y_on_content - scroll_y
     btn_save.rect.w = card_w
     btn_save.rect.h = 48
-    pygame.draw.rect(content_surf, (18, 36, 22), save_rect_content, border_radius=12)
-    pygame.draw.rect(content_surf, C_GREEN, save_rect_content, 2, border_radius=12)
-    slbl = font_label.render("✔  LƯU CÀI ĐẶT", True, C_WHITE)
+    pygame.draw.rect(content_surf, (10, 64, 44), save_rect_content, border_radius=12)
+    draw_rect_alpha(content_surf, (115, 255, 188, 48), (save_rect_content.x + 1, save_rect_content.y + 1, save_rect_content.w - 2, 4), radius=12)
+    pygame.draw.rect(content_surf, (24, 224, 140), save_rect_content, 2, border_radius=12)
+    slbl = font_label.render("✔  LƯU CÀI ĐẶT", True, (220, 255, 236))
     content_surf.blit(slbl, slbl.get_rect(center=save_rect_content.center))
 
     # Clip và blit vùng scroll (chỉ phần giữa header và footer)
@@ -454,24 +480,30 @@ def draw_settings_page(surf, boxes, btn_save, btn_back, font_title, font_label, 
     surf.blit(content_surf, (0, HEADER_H), (0, scroll_y, WIDTH, scroll_area_h))
 
     # ── Header cố định (vẽ đè lên) ──
-    draw_rect_alpha(surf, (8, 8, 16, 240), (0, 0, WIDTH, HEADER_H))
-    pygame.draw.line(surf, C_BORDER, (0, HEADER_H), (WIDTH, HEADER_H), 1)
-    title = font_title.render("⚙  CÀI ĐẶT", True, C_WHITE)
-    surf.blit(title, (30, 18))
+    draw_rect_alpha(surf, (9, 14, 38, 230), (0, 0, WIDTH, HEADER_H))
+    pygame.draw.line(surf, (64, 110, 180), (0, HEADER_H), (WIDTH, HEADER_H), 1)
+    pygame.draw.line(surf, (24, 248, 255), (0, 0), (WIDTH, 0), 2)
+    title = font_title.render("⚙  CÀI ĐẶT", True, (245, 252, 255))
+    surf.blit(title, (28, 10))
+    sub = font_label.render("Tinh chinh luc day, comment va qua tang", True, (128, 188, 232))
+    surf.blit(sub, (34, 52))
 
     # ── Footer cố định ──
-    draw_rect_alpha(surf, (8, 8, 16, 200), (0, HEIGHT - FOOTER_H, WIDTH, FOOTER_H))
-    pygame.draw.line(surf, C_BORDER, (0, HEIGHT - FOOTER_H), (WIDTH, HEIGHT - FOOTER_H), 1)
+    draw_rect_alpha(surf, (8, 12, 30, 210), (0, HEIGHT - FOOTER_H, WIDTH, FOOTER_H))
+    pygame.draw.line(surf, (58, 96, 156), (0, HEIGHT - FOOTER_H), (WIDTH, HEIGHT - FOOTER_H), 1)
     btn_back.rect.y = HEIGHT - 52
+    old_accent = btn_back.accent
+    btn_back.accent = (106, 180, 240)
     btn_back.draw(surf)
+    btn_back.accent = old_accent
 
     # Scroll indicator
     max_scroll = max(0, total_h - scroll_area_h)
     if max_scroll > 0:
         bar_h = int(scroll_area_h * scroll_area_h / total_h)
         bar_y = HEADER_H + int((scroll_area_h - bar_h) * scroll_y / max_scroll)
-        pygame.draw.rect(surf, C_BORDER, (WIDTH - 6, HEADER_H, 4, scroll_area_h), border_radius=2)
-        pygame.draw.rect(surf, C_CYAN,   (WIDTH - 6, bar_y,    4, bar_h),          border_radius=2)
+        pygame.draw.rect(surf, (46, 68, 106), (WIDTH - 8, HEADER_H, 6, scroll_area_h), border_radius=3)
+        pygame.draw.rect(surf, (26, 242, 250), (WIDTH - 8, bar_y, 6, bar_h), border_radius=3)
 
 # ═══════════════════════════════════════════════════════════
 # MAIN
@@ -508,8 +540,8 @@ def main():
         "gift_b":   InputBox(0, 0, 0, 40, font_text, text="Ice Cream,Sunglasses,Heart Me,GG"),
     }
     try:
-        r_org = pygame.image.load("assets/man.png").convert_alpha()
-        b_org = pygame.image.load("assets/woman.png").convert_alpha()
+        r_org = pygame.image.load(resource_path("assets", "man.png")).convert_alpha()
+        b_org = pygame.image.load(resource_path("assets", "woman.png")).convert_alpha()
         r_org = pygame.transform.flip(r_org, True, False)
         imgs_ok = True
     except:
@@ -705,24 +737,35 @@ def main():
             right_w = WIDTH - sx
 
             # Backgrounds
-            pygame.draw.rect(screen, (35, 8, 12), (0, 0, left_w, HEIGHT))
-            pygame.draw.rect(screen, (8, 12, 40), (sx, 0, right_w, HEIGHT))
+            pygame.draw.rect(screen, (58, 16, 24), (0, 0, left_w, HEIGHT))
+            pygame.draw.rect(screen, (14, 24, 70), (sx, 0, right_w, HEIGHT))
 
             # Subtle gradient vignette
             if left_w > 0:
                 gs_left = pygame.Surface((left_w, HEIGHT), pygame.SRCALPHA)
                 for xi in range(0, left_w, 4):
-                    a = int(30 * (1 - xi / max(left_w, 1)))
+                    a = int(44 * (1 - xi / max(left_w, 1)))
                     pygame.draw.line(gs_left, (*C_RED, a), (xi, 0), (xi, HEIGHT))
                 screen.blit(gs_left, (0, 0))
 
             if right_w > 0:
                 gs_right = pygame.Surface((right_w, HEIGHT), pygame.SRCALPHA)
                 for xi in range(0, right_w, 4):
-                    a = int(30 * (1 - xi / max(right_w, 1)))
+                    a = int(44 * (1 - xi / max(right_w, 1)))
                     px = right_w - 1 - xi
                     pygame.draw.line(gs_right, (*C_BLUE, a), (px, 0), (px, HEIGHT))
                 screen.blit(gs_right, (sx, 0))
+
+            # Soft stage glow around center lane where fighters face off.
+            faceoff_gap = max(48, min(140, int(min(left_w, right_w) * 0.22)))
+            for cx, cy, col in [
+                (sx - faceoff_gap - 70, HEIGHT // 2 + 20, C_RED),
+                (sx + faceoff_gap + 70, HEIGHT // 2 + 20, C_BLUE),
+            ]:
+                glow = pygame.Surface((520, 520), pygame.SRCALPHA)
+                pygame.draw.circle(glow, (*col, 28), (260, 260), 210)
+                pygame.draw.circle(glow, (*col, 16), (260, 260), 260)
+                screen.blit(glow, (cx - 260, cy - 260))
 
             # Character images
             if imgs_ok:
@@ -732,8 +775,22 @@ def main():
                 bf = max(1.0, 1.0 + (center_x - smooth_split) / half_w * 0.6)
                 ri = pygame.transform.smoothscale(r_org, (int(260*rf), int(260*rf)))
                 bi = pygame.transform.smoothscale(b_org, (int(260*bf), int(260*bf)))
-                screen.blit(ri, (sx//2 - ri.get_width()//2, HEIGHT//2 - ri.get_height()//2 - 20))
-                screen.blit(bi, (sx + (WIDTH-sx)//2 - bi.get_width()//2, HEIGHT//2 - bi.get_height()//2 - 20))
+
+                # Anchor each fighter by the pushing-hand point so movement looks like real pushing.
+                fighter_gap = max(0, min(12, int(min(left_w, right_w) * 0.025)))
+                left_hand_anchor = int(ri.get_width() * 0.86)
+                right_hand_anchor = int(bi.get_width() * 0.14)
+
+                left_x = sx - fighter_gap - left_hand_anchor
+                right_x = sx + fighter_gap - right_hand_anchor
+
+                # Keep each fighter on their lane near the divider, but allow edge clipping when squeezed.
+                left_x = min(sx - ri.get_width() + 12, left_x)
+                right_x = max(sx - 12, right_x)
+                y_pos = HEIGHT//2 - ri.get_height()//2 - 20
+
+                screen.blit(ri, (left_x, y_pos))
+                screen.blit(bi, (right_x, y_pos))
 
             update_draw_particles(screen)
             draw_divider(screen, smooth_split, data_state.shake_intensity, font_menu, t)
